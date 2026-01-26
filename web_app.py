@@ -207,9 +207,9 @@ with tab2:
                     st.write(f"- 活度：{record['param1']}Ci | 时间：{record['param2']}s")
                 
                 # 删除按钮（修复实时刷新）
-                delete_key = f"del_{record['id']}_{idx}"
+                import time
+                delete_key = f"del_{record['id']}_{int(time.time() * 1000)}"  # 时间戳+ID确保唯一
                 if st.button(f"删除本条记录（ID：{record['id']}）", key=delete_key, type="destructive"):
-                    # 从云端删除
                     delete_record(record["id"])
                     # 刷新匹配记录列表
                     st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
