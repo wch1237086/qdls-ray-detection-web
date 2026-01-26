@@ -1,2 +1,4 @@
 streamlit>=1.36.0
 pandas>=2.0.0
+tinydb>=4.8.0  # 新增：TinyDB云端存储依赖
+openpyxl>=3.1.2  # 新增：Excel导出依赖（防止导出报错）
