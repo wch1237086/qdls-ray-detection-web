@@ -125,7 +125,7 @@ with tab1:
                 param2 = st.text_input("时间 (s)", key="param2")
         
         # 提交按钮（替代Kivy的submit_btn）
-        submit_btn = st.form_submit_button("✅ 提交数据", type="primary")
+        submit_btn = st.form_submit_button("✅ 提交数据")
         
         # 提交逻辑（与Kivy一致）
         if submit_btn:
@@ -178,7 +178,7 @@ with tab2:
         query_thickness = st.text_input("厚度 (mm)（可选，仅数字）", key="query_thickness")
     
     # 查询按钮
-    query_btn = st.button("🔍 执行查询", type="secondary")
+    query_btn = st.button("🔍 执行查询")
     
     # 执行查询（默认加载所有数据）
     if query_btn or "matched_records" not in st.session_state:
@@ -253,17 +253,20 @@ with tab2:
                         st.text(detail_text)
                 
                 with col2:
-                    # 删除记录（修复版，避免key冲突）
-                    import time
-                    delete_key = f"del_{record['id']}_{int(time.time() * 1000)}"
-                    if st.button(f"🗑️ 删除记录（ID：{record['id']}）", key=delete_key, type="destructive"):
+                    # 修复版删除按钮（兼容所有Streamlit版本）
+                    delete_key = f"delete_record_{record['id']}"
+                    if st.button(f"🗑️ 删除记录（ID：{record['id']}）", key=delete_key):
                         # 移除记录
                         st.session_state.records = [r for r in st.session_state.records if r["id"] != record["id"]]
                         st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
                         # 保存数据
                         st.session_state.save_records(st.session_state.records)
                         st.success(f"✅ 记录ID：{record['id']} 已删除！")
-                        st.rerun()  # 刷新页面
+                        # 兼容式刷新
+                        try:
+                            st.experimental_rerun()
+                        except:
+                            st.rerun()
 
 # ========== 6. 底部信息 ==========
 st.divider()
