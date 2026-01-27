@@ -2,129 +2,132 @@ import streamlit as st
 import json
 import os
 from datetime import datetime
-import pandas as pd
-from tinydb import TinyDB, Query
-import hashlib
+import sys
 
-# ========== 1. 配置初始化（云端数据持久化） ==========
-# 初始化TinyDB（云端存储，替代本地JSON）
-if "db" not in st.session_state:
-    # 使用Streamlit Secrets或本地文件（部署后自动适配云端）
-    db_path = os.path.join(st.secrets.get("DATA_PATH", "."), "ray_detection_db.json")
-    st.session_state.db = TinyDB(db_path, ensure_ascii=False)
-    st.session_state.Record = Query()
-
-# ========== 2. 用户登录验证 ==========
-def check_password(password):
-    # 预设管理员密码（可自行修改，建议用hash值更安全）
-    ADMIN_PWD = st.secrets.get("ADMIN_PWD", "123456")  # 部署后可在Streamlit后台修改
-    return password == ADMIN_PWD
-
-# 登录界面
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.title("🔒 射线检测系统 - 登录")
-    password = st.text_input("请输入登录密码", type="password")
-    col1, col2 = st.columns([1, 5])
-    with col1:
-        if st.button("登录", type="primary"):
-            if check_password(password):
-                st.session_state.authenticated = True
-                st.rerun()  # 登录成功后刷新页面
-            else:
-                st.error("密码错误！请重试")
-    st.stop()  # 未登录时阻止后续内容加载
-
-# ========== 3. 核心数据操作函数（修复删除+云端存储） ==========
-def load_records():
-    """加载所有记录（云端读取）"""
-    return st.session_state.db.all()
-
-def save_record(record):
-    """保存单条记录（云端写入）"""
-    st.session_state.db.insert(record)
-    return True
-
-def delete_record(record_id):
-    """删除指定记录（修复删除逻辑）"""
-    st.session_state.db.remove(st.session_state.Record.id == record_id)
-    return True
-
-def get_next_id():
-    """获取下一个自增ID"""
-    records = load_records()
-    if not records:
-        return 1
-    return max([r["id"] for r in records]) + 1
-
-# ========== 4. 网页界面配置 ==========
+# ========== 1. 页面配置 & 数据存储初始化 ==========
+# 页面基础配置（适配手机+电脑）
 st.set_page_config(
-    page_title="射线检测参数管理系统",
+    page_title="射线检测管理系统",
     page_icon="📝",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# 标题
-st.title("📝 射线检测参数管理系统")
-st.caption(f"最后同步时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+# 数据文件路径（适配Streamlit云端部署）
+DATA_FILE = "ray_detection_records.json"
+if "DATA_PATH" in st.secrets:
+    DATA_FILE = os.path.join(st.secrets["DATA_PATH"], DATA_FILE)
+
+# 初始化会话状态（避免重复加载）
+if "records" not in st.session_state:
+    # 加载数据
+    def load_records():
+        if os.path.exists(DATA_FILE):
+            try:
+                with open(DATA_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data if isinstance(data, list) else []
+            except:
+                return []
+        return []
+    
+    # 保存数据
+    def save_records(records):
+        try:
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(records, f, ensure_ascii=False, indent=2)
+            return True
+        except:
+            return False
+    
+    st.session_state.records = load_records()
+    st.session_state.save_records = save_records
+    # 计算下一个ID
+    if st.session_state.records:
+        st.session_state.next_id = max([r["id"] for r in st.session_state.records]) + 1
+    else:
+        st.session_state.next_id = 1
+
+# ========== 2. 工具函数 ==========
+def get_extra_text(device_name, record):
+    """生成设备专属参数文本"""
+    if device_name == "九兆":
+        return f"剂量：{record.get('param1', '无')}Gy"
+    elif device_name in ["055射线机", "002射线机", "2505周向机"]:
+        return f"电压：{record.get('param1', '无')}kV | 时间：{record.get('param2', '无')}s"
+    elif device_name == "450射线机":
+        return (f"电压：{record.get('param1', '无')}kV | 电流：{record.get('param2', '无')}mA | "
+                f"焦点：{record.get('param3', '无')}mm | 时间：{record.get('param4', '无')}s")
+    elif device_name == "Ir192":
+        return f"活度：{record.get('param1', '无')}Ci | 时间：{record.get('param2', '无')}s"
+    else:
+        return "无额外参数"
+
+# ========== 3. 页面主体 ==========
+st.title("📝 射线检测数据管理系统")
 st.divider()
 
-# ========== 5. 核心功能区 ==========
-tab1, tab2, tab3 = st.tabs(["参数录入", "数据查询/删除", "数据导出"])
+# 选项卡：录入/查询（对应Kivy的两个Screen）
+tab1, tab2 = st.tabs(["📤 数据录入", "🔍 数据查询/删除"])
 
-# ========== 5.1 参数录入面板 ==========
+# ========== 4. 数据录入面板（对应InputScreen） ==========
 with tab1:
-    st.subheader("📤 参数录入")
+    st.subheader("参数录入")
     
-    # 表单布局（修复清空逻辑）
+    # 表单布局（清空逻辑与Kivy一致）
     with st.form(key="input_form", clear_on_submit=True):
-        # 设备选择
+        # 设备选择（替代Spinner）
         device = st.selectbox(
             "选择设备",
-            ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"]
+            ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
+            key="device_select"
         )
         
         # 透照类型
-        sheet_type = st.selectbox("选择透照类型", ["单片", "双片"])
+        sheet_type = st.selectbox(
+            "选择透照类型",
+            ["单片", "双片"],
+            key="sheet_select"
+        )
         
         # 基础参数
         col1, col2 = st.columns(2)
         with col1:
-            thickness = st.text_input("厚度 (mm)（仅数字）", placeholder="例如：10")
+            thickness = st.text_input("厚度 (mm)（仅数字）", key="thickness")
         with col2:
-            focal_length = st.text_input("焦距 (mm)（仅数字）", placeholder="例如：800")
+            focal_length = st.text_input("焦距 (mm)（仅数字）", key="focal")
         
-        # 设备专属参数（动态显示）
+        # 设备专属参数（动态显示，对应update_param_inputs）
+        st.subheader("设备专属参数")
         param1 = param2 = param3 = param4 = ""
+        
         if device == "九兆":
-            param1 = st.text_input("剂量 (Gy)", placeholder="例如：5")
+            param1 = st.text_input("剂量 (Gy)", key="param1")
         elif device in ["055射线机", "002射线机", "2505周向机"]:
             col3, col4 = st.columns(2)
             with col3:
-                param1 = st.text_input("电压 (kV)", placeholder="例如：150")
+                param1 = st.text_input("电压 (kV)", key="param1")
             with col4:
-                param2 = st.text_input("时间 (s)", placeholder="例如：30")
+                param2 = st.text_input("时间 (s)", key="param2")
         elif device == "450射线机":
             col3, col4 = st.columns(2)
             with col3:
-                param1 = st.text_input("电压 (kV)", placeholder="例如：200")
-                param3 = st.text_input("焦点 (mm)", placeholder="例如：2")
+                param1 = st.text_input("电压 (kV)", key="param1")
+                param3 = st.text_input("焦点 (mm)", key="param3")
             with col4:
-                param2 = st.text_input("电流 (mA)", placeholder="例如：5")
-                param4 = st.text_input("时间 (s)", placeholder="例如：40")
+                param2 = st.text_input("电流 (mA)", key="param2")
+                param4 = st.text_input("时间 (s)", key="param4")
         elif device == "Ir192":
             col3, col4 = st.columns(2)
             with col3:
-                param1 = st.text_input("活度 (Ci)", placeholder="例如：10")
+                param1 = st.text_input("活度 (Ci)", key="param1")
             with col4:
-                param2 = st.text_input("时间 (s)", placeholder="例如：25")
+                param2 = st.text_input("时间 (s)", key="param2")
         
-        # 提交按钮
-        submit_btn = st.form_submit_button("提交数据", type="primary")
+        # 提交按钮（替代Kivy的submit_btn）
+        submit_btn = st.form_submit_button("✅ 提交数据", type="primary")
         
-        # 提交逻辑（云端保存）
+        # 提交逻辑（与Kivy一致）
         if submit_btn:
             # 验证输入
             if not thickness.isdigit() or not focal_length.isdigit():
@@ -132,7 +135,7 @@ with tab1:
             else:
                 # 构造新记录
                 new_record = {
-                    "id": get_next_id(),
+                    "id": st.session_state.next_id,
                     "device": device,
                     "sheet_type": sheet_type,
                     "thickness": thickness,
@@ -144,138 +147,124 @@ with tab1:
                     "param4": param4
                 }
                 
-                # 保存到云端
-                if save_record(new_record):
+                # 保存数据
+                st.session_state.records.append(new_record)
+                if st.session_state.save_records(st.session_state.records):
                     st.success("✅ 数据提交成功！")
+                    st.session_state.next_id += 1
                 else:
                     st.error("❌ 数据保存失败！")
 
-# ========== 5.2 数据查询/删除面板（修复删除功能） ==========
+# ========== 5. 数据查询/删除面板（对应QueryScreen） ==========
 with tab2:
-    st.subheader("🔍 数据查询/删除")
+    st.subheader("数据查询/删除")
     
-    # 查询条件
+    # 查询条件（与Kivy一致）
+    st.subheader("查询条件")
     col1, col2, col3 = st.columns(3)
     with col1:
-        query_device = st.selectbox("筛选设备（可选）", [""] + ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"])
+        query_device = st.selectbox(
+            "选择查询设备（可选）",
+            [""] + ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
+            key="query_device"
+        )
     with col2:
-        query_sheet = st.selectbox("筛选透照类型（可选）", [""] + ["单片", "双片"])
+        query_sheet = st.selectbox(
+            "选择透照类型（可选）",
+            [""] + ["单片", "双片"],
+            key="query_sheet"
+        )
     with col3:
-        query_thickness = st.text_input("筛选厚度 (mm)（可选）", placeholder="例如：10")
+        query_thickness = st.text_input("厚度 (mm)（可选，仅数字）", key="query_thickness")
     
     # 查询按钮
-    query_btn = st.button("执行查询", type="secondary")
+    query_btn = st.button("🔍 执行查询", type="secondary")
+    
+    # 执行查询（默认加载所有数据）
     if query_btn or "matched_records" not in st.session_state:
-        # 加载所有记录
-        all_records = load_records()
-        # 筛选数据
+        device = query_device.strip()
+        sheet = query_sheet.strip()
+        thickness = query_thickness.strip()
+        
         matched = []
-        for record in all_records:
-            if query_device and record["device"] != query_device:
+        for record in st.session_state.records:
+            if device and record["device"] != device:
                 continue
-            if query_sheet and record["sheet_type"] != query_sheet:
+            if sheet and record["sheet_type"] != sheet:
                 continue
-            if query_thickness and record["thickness"] != query_thickness:
+            if thickness and record["thickness"] != thickness:
                 continue
             matched.append(record)
+        
         st.session_state.matched_records = matched
     
-    # 显示结果
+    # 显示查询结果
+    st.subheader(f"查询结果（共{len(st.session_state.matched_records)}条）")
+    
     if not st.session_state.matched_records:
         st.info("ℹ️ 未找到匹配的记录")
     else:
-        st.subheader(f"查询结果（共{len(st.session_state.matched_records)}条）")
-        # 遍历显示每条记录（修复删除逻辑）
-        for idx, record in enumerate(st.session_state.matched_records):
-            # 记录卡片
-            with st.expander(f"📋 记录ID：{record['id']} | 设备：{record['device']} | 录入时间：{record['full_time']}", expanded=True):
-                # 显示详情
+        # 遍历显示记录（替代Kivy的ScrollView+BoxLayout）
+        for record in st.session_state.matched_records:
+            # 记录卡片（替代ColoredBoxLayout）
+            with st.expander(f"📋 记录ID：{record['id']} | 设备：{record['device']}", expanded=True):
+                # 基本信息（与Kivy一致）
+                extra_text = get_extra_text(record["device"], record)
                 st.write(f"""
                 - 透照类型：{record['sheet_type']}
-                - 厚度：{record['thickness']}mm
-                - 焦距：{record['focal_length']}mm
+                - 厚度：{record['thickness']}mm | 焦距：{record['focal_length']}mm
+                - {extra_text}
+                - 录入时间：{record['full_time']}
                 """)
                 
-                # 显示设备专属参数
-                if record["device"] == "九兆":
-                    st.write(f"- 剂量：{record['param1']}Gy")
-                elif record["device"] in ["055射线机", "002射线机", "2505周向机"]:
-                    st.write(f"- 电压：{record['param1']}kV | 时间：{record['param2']}s")
-                elif record["device"] == "450射线机":
-                    st.write(f"- 电压：{record['param1']}kV | 电流：{record['param2']}mA | 焦点：{record['param3']}mm | 时间：{record['param4']}s")
-                elif record["device"] == "Ir192":
-                    st.write(f"- 活度：{record['param1']}Ci | 时间：{record['param2']}s")
+                # 操作按钮（详情+删除，对应Kivy的detail_btn/delete_btn）
+                col1, col2 = st.columns(2)
+                with col1:
+                    # 查看详情（替代Popup）
+                    if st.button(f"📄 查看详情（ID：{record['id']}）", key=f"detail_{record['id']}"):
+                        detail_text = f"""
+                        📋 记录详情（ID：{record['id']}）
+                        ├─ 设备：{record['device']}
+                        ├─ 透照类型：{record['sheet_type']}
+                        ├─ 厚度：{record['thickness']}mm
+                        ├─ 焦距：{record['focal_length']}mm
+                        ├─ 录入时间：{record['full_time']}
+                        """
+                        # 设备专属参数
+                        if record["device"] == "九兆":
+                            detail_text += f"└─ 剂量：{record.get('param1', '无')}Gy"
+                        elif record["device"] in ["055射线机", "002射线机", "2505周向机"]:
+                            detail_text += f"""
+                            ├─ 电压：{record.get('param1', '无')}kV
+                            └─ 时间：{record.get('param2', '无')}s
+                            """
+                        elif record["device"] == "450射线机":
+                            detail_text += f"""
+                            ├─ 电压：{record.get('param1', '无')}kV
+                            ├─ 电流：{record.get('param2', '无')}mA
+                            ├─ 焦点：{record.get('param3', '无')}mm
+                            └─ 时间：{record.get('param4', '无')}s
+                            """
+                        elif record["device"] == "Ir192":
+                            detail_text += f"""
+                            ├─ 活度：{record.get('param1', '无')}Ci
+                            └─ 时间：{record.get('param2', '无')}s
+                            """
+                        st.text(detail_text)
                 
-                # 删除按钮（修复实时刷新）
-                import time
-                delete_key = f"del_{record['id']}_{int(time.time() * 1000)}"  # 时间戳+ID确保唯一
-                if st.button(f"删除本条记录（ID：{record['id']}）", key=delete_key, type="destructive"):
-                    delete_record(record["id"])
-                    # 刷新匹配记录列表
-                    st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
-                    st.success(f"✅ 记录ID：{record['id']} 已删除！")
-                    # 强制刷新页面
-                    st.rerun()
-
-# ========== 5.3 数据导出面板（Excel导出功能） ==========
-with tab3:
-    st.subheader("📥 数据导出")
-    
-    # 导出选项
-    export_all = st.checkbox("导出所有数据（取消则导出筛选后的数据）", value=True)
-    
-    # 准备导出数据
-    if export_all:
-        export_data = load_records()
-    else:
-        export_data = st.session_state.get("matched_records", [])
-    
-    if not export_data:
-        st.info("ℹ️ 暂无可导出的数据")
-    else:
-        # 转换为DataFrame
-        df = pd.DataFrame(export_data)
-        # 优化列名显示
-        df_renamed = df.rename(columns={
-            "id": "记录ID",
-            "device": "设备",
-            "sheet_type": "透照类型",
-            "thickness": "厚度(mm)",
-            "focal_length": "焦距(mm)",
-            "full_time": "录入时间",
-            "param1": "参数1",
-            "param2": "参数2",
-            "param3": "参数3",
-            "param4": "参数4"
-        })
-        
-        # 生成Excel文件
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"射线检测数据_{timestamp}.xlsx"
-        
-        # 导出按钮
-        col1, col2 = st.columns([1, 5])
-        with col1:
-            st.download_button(
-                label="📤 导出为Excel",
-                data=df_renamed.to_excel(index=False),
-                file_name=file_name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary"
-            )
-        
-        # 预览导出数据
-        st.subheader("导出数据预览")
-        st.dataframe(df_renamed, use_container_width=True)
+                with col2:
+                    # 删除记录（修复版，避免key冲突）
+                    import time
+                    delete_key = f"del_{record['id']}_{int(time.time() * 1000)}"
+                    if st.button(f"🗑️ 删除记录（ID：{record['id']}）", key=delete_key, type="destructive"):
+                        # 移除记录
+                        st.session_state.records = [r for r in st.session_state.records if r["id"] != record["id"]]
+                        st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
+                        # 保存数据
+                        st.session_state.save_records(st.session_state.records)
+                        st.success(f"✅ 记录ID：{record['id']} 已删除！")
+                        st.rerun()  # 刷新页面
 
 # ========== 6. 底部信息 ==========
 st.divider()
-total_records = len(load_records())
-st.caption(f"📊 系统总记录数：{total_records} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-# 退出登录按钮
-col1, col2 = st.columns([5, 1])
-with col2:
-    if st.button("🚪 退出登录", type="secondary"):
-        st.session_state.authenticated = False
-        st.rerun()
+st.caption(f"📊 系统总记录数：{len(st.session_state.records)} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
