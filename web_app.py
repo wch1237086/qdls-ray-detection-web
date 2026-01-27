@@ -48,9 +48,9 @@ if "records" not in st.session_state:
     else:
         st.session_state.next_id = 1
 
-# ========== 2. 工具函数 ==========
+# ========== 2. 工具函数（完全对齐Kivy版） ==========
 def get_extra_text(device_name, record):
-    """生成设备专属参数文本"""
+    """生成设备专属参数文本（完全对齐Kivy的get_extra_text）"""
     if device_name == "九兆":
         return f"剂量：{record.get('param1', '无')}Gy"
     elif device_name in ["055射线机", "002射线机", "2505周向机"]:
@@ -70,7 +70,7 @@ st.divider()
 # 选项卡：录入/查询（对应Kivy的两个Screen）
 tab1, tab2 = st.tabs(["📤 数据录入", "🔍 数据查询/删除"])
 
-# ========== 4. 数据录入面板（对应InputScreen） ==========
+# ========== 4. 数据录入面板（完全对齐Kivy的InputScreen） ==========
 with tab1:
     st.subheader("参数录入")
     
@@ -91,61 +91,64 @@ with tab1:
         )
         
         # 基础参数
-        col1, col2 = st.columns(2)
-        with col1:
-            thickness = st.text_input("厚度 (mm)（仅数字）", key="thickness")
-        with col2:
-            focal_length = st.text_input("焦距 (mm)（仅数字）", key="focal")
+        thickness = st.text_input("厚度 (mm)（仅数字）", key="thickness")
+        focal_length = st.text_input("焦距 (mm)（仅数字）", key="focal")
         
-        # 设备专属参数（动态显示，对应update_param_inputs）
+        # 设备专属参数（完全对齐Kivy的update_param_inputs）
         st.subheader("设备专属参数")
         param1 = param2 = param3 = param4 = ""
+        param_inputs = {}  # 模拟Kivy的param_inputs字典
         
+        # 九兆：仅剂量
         if device == "九兆":
             param1 = st.text_input("剂量 (Gy)", key="param1")
+            param_inputs["param1"] = param1
+        # 055/002/2505周向机：电压+时间
         elif device in ["055射线机", "002射线机", "2505周向机"]:
-            col3, col4 = st.columns(2)
-            with col3:
-                param1 = st.text_input("电压 (kV)", key="param1")
-            with col4:
-                param2 = st.text_input("时间 (s)", key="param2")
+            param1 = st.text_input("电压 (kV)", key="param1")
+            param2 = st.text_input("时间 (s)", key="param2")
+            param_inputs["param1"] = param1
+            param_inputs["param2"] = param2
+        # 450射线机：电压+电流+焦点+时间（完全对齐第二张图）
         elif device == "450射线机":
-            col3, col4 = st.columns(2)
-            with col3:
-                param1 = st.text_input("电压 (kV)", key="param1")
-                param3 = st.text_input("焦点 (mm)", key="param3")
-            with col4:
-                param2 = st.text_input("电流 (mA)", key="param2")
-                param4 = st.text_input("时间 (s)", key="param4")
+            param1 = st.text_input("电压 (kV)", key="param1")
+            param2 = st.text_input("电流 (mA)", key="param2")
+            param3 = st.text_input("焦点 (mm)", key="param3")
+            param4 = st.text_input("时间 (s)", key="param4")
+            param_inputs["param1"] = param1
+            param_inputs["param2"] = param2
+            param_inputs["param3"] = param3
+            param_inputs["param4"] = param4
+        # Ir192：活度+时间
         elif device == "Ir192":
-            col3, col4 = st.columns(2)
-            with col3:
-                param1 = st.text_input("活度 (Ci)", key="param1")
-            with col4:
-                param2 = st.text_input("时间 (s)", key="param2")
+            param1 = st.text_input("活度 (Ci)", key="param1")
+            param2 = st.text_input("时间 (s)", key="param2")
+            param_inputs["param1"] = param1
+            param_inputs["param2"] = param2
         
         # 提交按钮（替代Kivy的submit_btn）
         submit_btn = st.form_submit_button("✅ 提交数据")
         
-        # 提交逻辑（与Kivy一致）
+        # 提交逻辑（完全对齐Kivy的submit_data）
         if submit_btn:
             # 验证输入
             if not thickness.isdigit() or not focal_length.isdigit():
                 st.error("❌ 厚度和焦距必须输入数字！")
             else:
-                # 构造新记录
+                # 构造新记录（完全对齐Kivy的new_record）
                 new_record = {
                     "id": st.session_state.next_id,
                     "device": device,
                     "sheet_type": sheet_type,
                     "thickness": thickness,
                     "focal_length": focal_length,
-                    "full_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "param1": param1,
-                    "param2": param2,
-                    "param3": param3,
-                    "param4": param4
+                    "full_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
+                # 补充设备专属参数（对齐Kivy的循环param_inputs）
+                new_record["param1"] = param1
+                new_record["param2"] = param2
+                new_record["param3"] = param3
+                new_record["param4"] = param4
                 
                 # 保存数据
                 st.session_state.records.append(new_record)
@@ -155,32 +158,27 @@ with tab1:
                 else:
                     st.error("❌ 数据保存失败！")
 
-# ========== 5. 数据查询/删除面板（对应QueryScreen） ==========
+# ========== 5. 数据查询/删除面板（完全对齐Kivy的QueryScreen） ==========
 with tab2:
     st.subheader("数据查询/删除")
     
-    # 查询条件（与Kivy一致）
-    st.subheader("查询条件")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        query_device = st.selectbox(
-            "选择查询设备（可选）",
-            [""] + ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
-            key="query_device"
-        )
-    with col2:
-        query_sheet = st.selectbox(
-            "选择透照类型（可选）",
-            [""] + ["单片", "双片"],
-            key="query_sheet"
-        )
-    with col3:
-        query_thickness = st.text_input("厚度 (mm)（可选，仅数字）", key="query_thickness")
+    # 查询条件（完全对齐Kivy的查询逻辑）
+    query_device = st.selectbox(
+        "选择查询设备（可选）",
+        [""] + ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
+        key="query_device"
+    )
+    query_sheet = st.selectbox(
+        "选择透照类型（可选）",
+        [""] + ["单片", "双片"],
+        key="query_sheet"
+    )
+    query_thickness = st.text_input("厚度 (mm)（可选，仅数字）", key="query_thickness")
     
     # 查询按钮
     query_btn = st.button("🔍 执行查询")
     
-    # 执行查询（默认加载所有数据）
+    # 执行查询（默认加载所有数据，对齐Kivy的search_records）
     if query_btn or "matched_records" not in st.session_state:
         device = query_device.strip()
         sheet = query_sheet.strip()
@@ -204,11 +202,11 @@ with tab2:
     if not st.session_state.matched_records:
         st.info("ℹ️ 未找到匹配的记录")
     else:
-        # 遍历显示记录（替代Kivy的ScrollView+BoxLayout）
+        # 遍历显示记录（完全对齐Kivy的结果展示）
         for record in st.session_state.matched_records:
-            # 记录卡片（替代ColoredBoxLayout）
+            # 记录卡片（替代Kivy的ColoredBoxLayout）
             with st.expander(f"📋 记录ID：{record['id']} | 设备：{record['device']}", expanded=True):
-                # 基本信息（与Kivy一致）
+                # 基本信息（对齐Kivy的result_text）
                 extra_text = get_extra_text(record["device"], record)
                 st.write(f"""
                 - 透照类型：{record['sheet_type']}
@@ -217,10 +215,10 @@ with tab2:
                 - 录入时间：{record['full_time']}
                 """)
                 
-                # 操作按钮（详情+删除，对应Kivy的detail_btn/delete_btn）
+                # 操作按钮（详情+删除，对齐Kivy的detail_btn/delete_btn）
                 col1, col2 = st.columns(2)
                 with col1:
-                    # 查看详情（替代Popup）
+                    # 查看详情（替代Kivy的Popup）
                     if st.button(f"📄 查看详情（ID：{record['id']}）", key=f"detail_{record['id']}"):
                         detail_text = f"""
                         📋 记录详情（ID：{record['id']}）
@@ -230,7 +228,7 @@ with tab2:
                         ├─ 焦距：{record['focal_length']}mm
                         ├─ 录入时间：{record['full_time']}
                         """
-                        # 设备专属参数
+                        # 设备专属参数（完全对齐Kivy的show_detail）
                         if record["device"] == "九兆":
                             detail_text += f"└─ 剂量：{record.get('param1', '无')}Gy"
                         elif record["device"] in ["055射线机", "002射线机", "2505周向机"]:
@@ -256,7 +254,7 @@ with tab2:
                     # 修复版删除按钮（兼容所有Streamlit版本）
                     delete_key = f"delete_record_{record['id']}"
                     if st.button(f"🗑️ 删除记录（ID：{record['id']}）", key=delete_key):
-                        # 移除记录
+                        # 移除记录（对齐Kivy的delete_record）
                         st.session_state.records = [r for r in st.session_state.records if r["id"] != record["id"]]
                         st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
                         # 保存数据
