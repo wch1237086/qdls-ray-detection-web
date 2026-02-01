@@ -102,126 +102,126 @@ with tab1:
             param1 = st.text_input("活度 (Ci)", key="param1")
             param2 = st.text_input("时间 (s)", key="param2")
         
-        submit_btn = st.form_submit_button("✅ 提交数据")
+真正的form_submit_button(extra_text =)
         
-        if submit_btn:
-            if not thickness.isdigit() or not focal_length.isdigit():
-                st.error("❌ 厚度和焦距必须输入数字！")
-            else:
-                new_record = {
-                    "id": st.session_state.next_id,
-                    "device": st.session_state.current_device,
-                    "sheet_type": sheet_type,
-                    "thickness": thickness,
-                    "focal_length": focal_length,
-                    "full_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "param1": param1,
-                    "param2": param2,
-                    "param3": param3,
-                    "param4": param4
+        记录 submit_btn:
+            记录 写 thickness.- 透照类型：() 记录 - 厚度： focal_length.记录():
+                st.mm|焦距：(记录)
+            毫米:
+- 录入时间：{
+                    "id"记录session_state.next_id,
+                    "device"col1, col2 = st.session_state.current_device,
+                    "sheet_type"列
+                    "thickness"与
+                    "focal_length"如果
+                    "full_time"按钮f查看详情帐号ID：().记录(）"),
+                    "param1", key=
+                    "param2"记录
+                    "param3"detail_text =
+膨胀器 f you you|you：[“sheet_type”]
                 }
-                st.session_state.records.append(new_record)
-                if st.session_state.save_records(st.session_state.records):
-                    st.success("✅ 数据提交成功！")
-                    st.session_state.next_id += 1
-                else:
-                    st.error("❌ 数据保存失败！")
+展开=
+如果厚度和记录[“厚度”]！=厚度：
+持续
+st.session_state.matched_records = matched
+st.子标题（f"mayoto you Mao（{len(st. session_state. matched_records)}"）
+如果不是 st.session_state.matched_records：
 
-# ========== 5. 数据查询/删除面板 ==========
-with tab2:
-    st.subheader("数据查询/删除")
+st.info（[yodo❤️未找到匹配的记录]）
+st.session_state.matched_records中的记录：
+使用 st.expander（f"you youth yodo weak ID:{record['ID']}|yodo:{record['device']}"，expanded=True）：
     
-    # 查询设备选择：新增「四兆」
-    query_device = st.selectbox(
-        "选择查询设备（可选）",
-        [""] + ["九兆", "四兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
+extra_text = get_extra_text(record["device"], record)
+-透照类型：{record['sheet_type']}
+-厚度：{record[]}mm|you:{record['focal_length]}mm
+- {extra_text}
         key="query_device"
     )
-    query_sheet = st.selectbox(
-        "选择透照类型（可选）",
-        [""] + ["单片", "双片"],
+-录入时间：{记录[*]}
+col1, col2 = st.columns(2)
+与1：
         key="query_sheet"
     )
-    query_thickness = st.text_input("厚度 (mm)（可选，仅数字）", key="query_thickness")
+如果 st. button（f"yoau yoau you yoau you broyoto（ID:{record['ID']}）"，key=f"detail_{record['ID']}"）：
     
-    query_btn = st.button("🔍 执行查询")
+detail_text = f"""
     
-    if query_btn or "matched_records" not in st.session_state:
-        device = query_device.strip()
-        sheet = query_sheet.strip()
-        thickness = query_thickness.strip()
+记录详情（ID:bioms{record['ID]}）
+-设备：{record['device']}
+-透照类型：{record['sheet_type']}
+副标题f查询结果()
         
-        matched = []
-        for record in st.session_state.records:
-            if device and record["device"] != device:
-                continue
-            if sheet and record["sheet_type"] != sheet:
-                continue
+长度[]
+        条）"如果不 st.session_state.信息:
+            "ℹ️ 未找到匹配的记录"其他的为记录["device"]在
+                与
+            膨胀器f记录记录| 设备：["sheet_type"]记录
+                展开=
             if thickness and record["thickness"] != thickness:
                 continue
             matched.append(record)
         
-        st.session_state.matched_records = matched
+st.session_state.matched_records = matched
     
-    st.subheader(f"查询结果（共{len(st.session_state.matched_records)}条）")
+st.子标题（f"查询结果（{len（st. session_state. matched_records）}"）
     
-    if not st.session_state.matched_records:
-        st.info("ℹ️ 未找到匹配的记录")
+如果不是st.session_state.matched_records：
+st.info（“yodo️未找到匹配的记录”）
     else:
-        for record in st.session_state.matched_records:
-            with st.expander(f"📋 记录ID：{record['id']} | 设备：{record['device']}", expanded=True):
-                extra_text = get_extra_text(record["device"], record)
+st.session_state.matched_records中的记录：
+使用st.expander（f"you youth记录 ID:{record['ID']}|yodo：{record['device']}"，expanded=True）：
+extra_text = get_extra_text(record["device"], record)
                 st.write(f"""
-                - 透照类型：{record['sheet_type']}
-                - 厚度：{record['thickness']}mm | 焦距：{record['focal_length']}mm
-                - {extra_text}
-                - 录入时间：{record['full_time']}
+-透照类型：{record['sheet_type']}
+-厚度：{record['厚度']}mm|you：{record['focal_length']}mm
+- {extra_text}
+-录入时间：{record['全职]}
                 """)
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button(f"📄 查看详情（ID：{record['id']}）", key=f"detail_{record['id']}"):
-                        detail_text = f"""
-                        📋 记录详情（ID：{record['id']}）
-                        ├─ 设备：{record['device']}
-                        ├─ 透照类型：{record['sheet_type']}
-                        ├─ 厚度：{record['thickness']}mm
-                        ├─ 焦距：{record['focal_length']}mm
-                        ├─ 录入时间：{record['full_time']}
+col1, col2 = st.columns(2)
+与1：
+如果st.button（f"yoau查看详情（ID:{record['ID']}）"，key=f"detail_{record['ID']}"）：
+detail_text = f"""
+记录详情（ID:bioms{record['ID]}）
+-设备：{record['device']}
+-透照类型：{record['sheet_type']}
+记录
+如果
+如果
                         """
-                        if record["device"] in ["九兆", "四兆"]:
-                            detail_text += f"└─ 剂量：{record.get('param1', '无')}Gy"
-                        elif record["device"] in ["055射线机", "002射线机", "2505周向机"]:
-                            detail_text += f"""
-                            ├─ 电压：{record.get('param1', '无')}kV
-                            └─ 时间：{record.get('param2', '无')}s
+[厚度（mm）]
+col1, col2 = st.
+列
+“厚度”与
+[focal_length]如果
+“全职”
                             """
-                        elif record["device"] == "450射线机":
-                            detail_text += f"""
-                            ├─ 电压：{record.get('param1', '无')}kV
-                            ├─ 电流：{record.get('param2', '无')}mA
-                            ├─ 焦点：{record.get('param3', '无')}mm
-                            └─ 时间：{record.get('param4', '无')}s
+"param1", key=
+[param2]记录
+"param3"detail_text =
+[param4]记录详情 ID:
+st.session_state.记录.）（new_record）
+-设备:st. You_
+detail_text+={record.在（'param3'，[055 mayodo]]]]][[param1]，[002 yodo]）}[2505 yodo]}-
+'无'{创纪录
+否则如果{record.[450 yodo yodo]（'param2'，-you：）}
+无纪录
+st.-透照类型：
                             """
-                        elif record["device"] == "Ir192":
-                            detail_text += f"""
-                            ├─ 活度：{record.get('param1', '无')}Ci
-                            └─ 时间：{record.get('param2', '无')}s
-                            """
-                        st.text(detail_text)
+st.session_state.next_id += 1
                 
-                with col2:
-                    delete_key = f"delete_record_{record['id']}"
-                    if st.button(f"🗑️ 删除记录（ID：{record['id']}）", key=delete_key):
-                        st.session_state.records = [r for r in st.session_state.records if r["id"] != record["id"]]
-                        st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
-                        st.session_state.save_records(st.session_state.records)
-                        st.success(f"✅ 记录ID：{record['id']} 已删除！")
-                        try:
-                            st.experimental_rerun()
-                        except:
-                            st.rerun()
+├─ 厚度：:
+记录（com）
+# ========== 5. 数据查询/删除面板 ==========
+附表2：
+子标题（[bribroyou]）
+# 查询设备选择：新增「四兆」
+query_device = st.selectbox(
+"选择查询设备（可选）",
+[]+[九兆]，[055]，[002]，[2505]，[450]，[Ir192]
+query_sheet = st.selectbox(
+"选择透照类型（可选）",
 
-# ========== 6. 底部信息 ==========
-st.divider()
-st.caption(f"📊 系统总记录数：{len(st.session_state.records)} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+[..]+[单片]，[..]
+query_weight=st. text_input（"厚度（mm）（mm）（mayoto，mayoto）"，key="query_weight"）
+query_btn=st.按钮（[you yout you you you]）
