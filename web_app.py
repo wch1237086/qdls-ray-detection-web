@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # 内置初始密码（你可以在这里修改）
-DEFAULT_PASSWORD = "qdlswsjc"
+DEFAULT_PASSWORD = "123456"
 
 def check_password():
     # 用表单包裹密码框和登录按钮
@@ -199,4 +199,58 @@ with tab2:
     else:
         for record in st.session_state.matched_records:
             with st.expander(f"📋 记录ID：{record['id']} | 设备：{record['device']}", expanded=True):
-         
+                extra_text = get_extra_text(record["device"], record)
+                st.write(f"""
+                - 透照类型：{record['sheet_type']}
+                - 厚度：{record['thickness']}mm | 焦距：{record['focal_length']}mm
+                - {extra_text}
+                - 录入时间：{record['full_time']}
+                """)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"📄 查看详情（ID：{record['id']}）", key=f"detail_{record['id']}"):
+                        detail_text = f"""
+                        📋 记录详情（ID：{record['id']}）
+                        ├─ 设备：{record['device']}
+                        ├─ 透照类型：{record['sheet_type']}
+                        ├─ 厚度：{record['thickness']}mm
+                        ├─ 焦距：{record['focal_length']}mm
+                        ├─ 录入时间：{record['full_time']}
+                        """
+                        if record["device"] in ["九兆", "四兆"]:
+                            detail_text += f"└─ 剂量：{record.get('param1', '无')}Gy"
+                        elif record["device"] in ["055射线机", "002射线机", "2505周向机"]:
+                            detail_text += f"""
+                            ├─ 电压：{record.get('param1', '无')}kV
+                            └─ 时间：{record.get('param2', '无')}s
+                            """
+                        elif record["device"] == "450射线机":
+                            detail_text += f"""
+                            ├─ 电压：{record.get('param1', '无')}kV
+                            ├─ 电流：{record.get('param2', '无')}mA
+                            ├─ 焦点：{record.get('param3', '无')}mm
+                            └─ 时间：{record.get('param4', '无')}s
+                            """
+                        elif record["device"] == "Ir192":
+                            detail_text += f"""
+                            ├─ 活度：{record.get('param1', '无')}Ci
+                            └─ 时间：{record.get('param2', '无')}s
+                            """
+                        st.text(detail_text)
+                
+                with col2:
+                    delete_key = f"delete_record_{record['id']}"
+                    if st.button(f"🗑️ 删除记录（ID：{record['id']}）", key=delete_key):
+                        st.session_state.records = [r for r in st.session_state.records if r["id"] != record["id"]]
+                        st.session_state.matched_records = [r for r in st.session_state.matched_records if r["id"] != record["id"]]
+                        st.session_state.save_records(st.session_state.records)
+                        st.success(f"✅ 记录ID：{record['id']} 已删除！")
+                        try:
+                            st.experimental_rerun()
+                        except:
+                            st.rerun()
+
+# ========== 7. 底部信息 ==========
+st.divider()
+st.caption(f"📊 系统总记录数：{len(st.session_state.records)} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
