@@ -86,10 +86,11 @@ def get_extra_text(device_name, record):
     else:
         return "无额外参数"
 
-# ========== 4. 新增：多设备数据导出为Excel ==========
+# ========== 4. 多设备数据导出为Excel（使用openpyxl引擎） ==========
 def export_to_excel(records):
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    # 使用openpyxl引擎，无需安装xlsxwriter
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
         # 按设备分组导出为不同Sheet
         devices = list(set([r["device"] for r in records]))
         for idx, device in enumerate(devices, 1):
@@ -277,7 +278,7 @@ with tab2:
                         except:
                             st.rerun()
 
-# ========== 8. 新增：数据导出面板 ==========
+# ========== 8. 数据导出面板 ==========
 with tab3:
     st.subheader("📥 数据导出（多设备分Sheet）")
     
