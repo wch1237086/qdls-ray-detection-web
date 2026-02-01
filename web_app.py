@@ -3,6 +3,8 @@ import json
 import os
 from datetime import datetime
 import hmac
+import pandas as pd
+from io import BytesIO
 
 # ========== 1. 页面配置 & 内置初始密码登录（带登录按钮） ==========
 st.set_page_config(
@@ -16,11 +18,10 @@ st.set_page_config(
 DEFAULT_PASSWORD = "123456"
 
 def check_password():
-    # 用表单包裹密码框和登录按钮
     with st.form("login_form", clear_on_submit=False):
         st.title("🔐 射线检测系统 - 登录")
         password = st.text_input("请输入密码", type="password", key="password")
-        submit_btn = st.form_submit_button("登录")  # 明确的登录按钮
+        submit_btn = st.form_submit_button("登录")
 
     def password_entered():
         if hmac.compare_digest(password, DEFAULT_PASSWORD):
@@ -85,13 +86,38 @@ def get_extra_text(device_name, record):
     else:
         return "无额外参数"
 
-# ========== 4. 页面主体 ==========
+# ========== 4. 新增：多设备数据导出为Excel ==========
+def export_to_excel(records):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        # 按设备分组导出为不同Sheet
+        devices = list(set([r["device"] for r in records]))
+        for idx, device in enumerate(devices, 1):
+            device_records = [r for r in records if r["device"] == device]
+            df = pd.DataFrame(device_records)
+            
+            # 曝光曲线数据：实时计算厚度与剂量/电压的关系
+            if device in ["九兆", "四兆"]:
+                df["曝光曲线（厚度-剂量）"] = df.apply(lambda x: f"{x['thickness']}mm → {x['param1']}Gy", axis=1)
+            elif device in ["055射线机", "002射线机", "2505周向机"]:
+                df["曝光曲线（厚度-电压）"] = df.apply(lambda x: f"{x['thickness']}mm → {x['param1']}kV", axis=1)
+            elif device == "450射线机":
+                df["曝光曲线（厚度-电压）"] = df.apply(lambda x: f"{x['thickness']}mm → {x['param1']}kV", axis=1)
+            elif device == "Ir192":
+                df["曝光曲线（厚度-活度）"] = df.apply(lambda x: f"{x['thickness']}mm → {x['param1']}Ci", axis=1)
+            
+            df.to_excel(writer, sheet_name=f"Sheet{idx}（{device}）", index=False)
+    
+    output.seek(0)
+    return output
+
+# ========== 5. 页面主体 ==========
 st.title("📝 射线检测数据管理系统")
 st.divider()
 
-tab1, tab2 = st.tabs(["📤 数据录入", "🔍 数据查询/删除"])
+tab1, tab2, tab3 = st.tabs(["📤 数据录入", "🔍 数据查询/删除", "📥 数据导出"])
 
-# ========== 5. 数据录入面板 ==========
+# ========== 6. 数据录入面板 ==========
 with tab1:
     st.subheader("参数录入")
     
@@ -112,7 +138,6 @@ with tab1:
             key="sheet_select"
         )
         
-        # 修改：厚度输入框取消仅数字限制
         thickness = st.text_input("厚度 (mm)", key="thickness")
         focal_length = st.text_input("焦距 (mm)（仅数字）", key="focal")
         
@@ -136,7 +161,6 @@ with tab1:
         submit_btn = st.form_submit_button("✅ 提交数据")
         
         if submit_btn:
-            # 修改：仅检查焦距为数字，不再检查厚度
             if not focal_length.isdigit():
                 st.error("❌ 焦距必须输入数字！")
             else:
@@ -159,7 +183,7 @@ with tab1:
                 else:
                     st.error("❌ 数据保存失败！")
 
-# ========== 6. 数据查询/删除面板 ==========
+# ========== 7. 数据查询/删除面板 ==========
 with tab2:
     st.subheader("数据查询/删除")
     
@@ -253,6 +277,22 @@ with tab2:
                         except:
                             st.rerun()
 
-# ========== 7. 底部信息 ==========
+# ========== 8. 新增：数据导出面板 ==========
+with tab3:
+    st.subheader("📥 数据导出（多设备分Sheet）")
+    
+    if st.session_state.records:
+        excel_file = export_to_excel(st.session_state.records)
+        st.download_button(
+            label="📥 导出所有数据为Excel",
+            data=excel_file,
+            file_name=f"射线检测数据_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        st.info("💡 导出说明：\n- 不同设备的数据会自动分到不同Sheet\n- 每个Sheet包含实时计算的曝光曲线数据\n- 曝光曲线格式：厚度 → 剂量/电压/活度")
+    else:
+        st.warning("⚠️ 暂无数据可导出，请先录入数据")
+
+# ========== 9. 底部信息 ==========
 st.divider()
 st.caption(f"📊 系统总记录数：{len(st.session_state.records)} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
