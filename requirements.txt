@@ -1,2 +1,4 @@
 streamlit>=1.30.0  # 降低最低版本要求
 json5>=0.9.14
+pandas
+openpyxl
