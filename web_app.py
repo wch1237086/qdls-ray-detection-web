@@ -3,10 +3,14 @@ import json
 import os
 from datetime import datetime
 
-# 页面配置
-st.set_page_config(page_title="射线检测管理系统", page_icon="📝", layout="wide")
+# ========== 1. 页面配置 & 数据存储初始化 ==========
+st.set_page_config(
+    page_title="射线检测管理系统",
+    page_icon="📝",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# 数据存储
 DATA_FILE = "ray_detection_records.json"
 if "DATA_PATH" in st.secrets:
     DATA_FILE = os.path.join(st.secrets["DATA_PATH"], DATA_FILE)
@@ -34,35 +38,43 @@ if "records" not in st.session_state:
     st.session_state.save_records = save_records
     st.session_state.next_id = max([r["id"] for r in st.session_state.records], default=0) + 1 if st.session_state.records else 1
 
+# ========== 2. 工具函数 ==========
 def get_extra_text(device_name, record):
-    if device_name == "九兆":
+    if device_name in ["九兆", "四兆"]:  # 新增「四兆」，参数与九兆一致
         return f"剂量：{record.get('param1', '无')}Gy"
     elif device_name in ["055射线机", "002射线机", "2505周向机"]:
         return f"电压：{record.get('param1', '无')}kV | 时间：{record.get('param2', '无')}s"
     elif device_name == "450射线机":
-        return f"电压：{record.get('param1', '无')}kV | 电流：{record.get('param2', '无')}mA | 焦点：{record.get('param3', '无')}mm | 时间：{record.get('param4', '无')}s"
+        return (f"电压：{record.get('param1', '无')}kV | 电流：{record.get('param2', '无')}mA | "
+                f"焦点：{record.get('param3', '无')}mm | 时间：{record.get('param4', '无')}s")
     elif device_name == "Ir192":
         return f"活度：{record.get('param1', '无')}Ci | 时间：{record.get('param2', '无')}s"
     else:
         return "无额外参数"
 
-# 页面主体
+# ========== 3. 页面主体 ==========
 st.title("📝 射线检测数据管理系统")
 st.divider()
 
 tab1, tab2 = st.tabs(["📤 数据录入", "🔍 数据查询/删除"])
 
-# 数据录入面板
+# ========== 4. 数据录入面板 ==========
 with tab1:
     st.subheader("参数录入")
     
+    # 设备选择：新增「四兆」
+    device = st.selectbox(
+        "选择设备",
+        ["九兆", "四兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
+        key="device_select"
+    )
+    
+    # 跟踪设备变化，触发实时刷新
+    if "current_device" not in st.session_state or st.session_state.current_device != device:
+        st.session_state.current_device = device
+        st.rerun()
+    
     with st.form(key="input_form", clear_on_submit=True):
-        device = st.selectbox(
-            "选择设备",
-            ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
-            key="device_select"
-        )
-        
         sheet_type = st.selectbox(
             "选择透照类型",
             ["单片", "双片"],
@@ -75,17 +87,18 @@ with tab1:
         st.subheader("设备专属参数")
         param1 = param2 = param3 = param4 = ""
         
-        if device == "九兆":
+        # 根据当前设备动态显示参数
+        if st.session_state.current_device in ["九兆", "四兆"]:  # 四兆参数与九兆一致
             param1 = st.text_input("剂量 (Gy)", key="param1")
-        elif device in ["055射线机", "002射线机", "2505周向机"]:
+        elif st.session_state.current_device in ["055射线机", "002射线机", "2505周向机"]:
             param1 = st.text_input("电压 (kV)", key="param1")
             param2 = st.text_input("时间 (s)", key="param2")
-        elif device == "450射线机":
+        elif st.session_state.current_device == "450射线机":
             param1 = st.text_input("电压 (kV)", key="param1")
             param2 = st.text_input("电流 (mA)", key="param2")
             param3 = st.text_input("焦点 (mm)", key="param3")
             param4 = st.text_input("时间 (s)", key="param4")
-        elif device == "Ir192":
+        elif st.session_state.current_device == "Ir192":
             param1 = st.text_input("活度 (Ci)", key="param1")
             param2 = st.text_input("时间 (s)", key="param2")
         
@@ -97,7 +110,7 @@ with tab1:
             else:
                 new_record = {
                     "id": st.session_state.next_id,
-                    "device": device,
+                    "device": st.session_state.current_device,
                     "sheet_type": sheet_type,
                     "thickness": thickness,
                     "focal_length": focal_length,
@@ -114,13 +127,14 @@ with tab1:
                 else:
                     st.error("❌ 数据保存失败！")
 
-# 数据查询/删除面板
+# ========== 5. 数据查询/删除面板 ==========
 with tab2:
     st.subheader("数据查询/删除")
     
+    # 查询设备选择：新增「四兆」
     query_device = st.selectbox(
         "选择查询设备（可选）",
-        [""] + ["九兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
+        [""] + ["九兆", "四兆", "055射线机", "002射线机", "2505周向机", "450射线机", "Ir192"],
         key="query_device"
     )
     query_sheet = st.selectbox(
@@ -175,7 +189,7 @@ with tab2:
                         ├─ 焦距：{record['focal_length']}mm
                         ├─ 录入时间：{record['full_time']}
                         """
-                        if record["device"] == "九兆":
+                        if record["device"] in ["九兆", "四兆"]:
                             detail_text += f"└─ 剂量：{record.get('param1', '无')}Gy"
                         elif record["device"] in ["055射线机", "002射线机", "2505周向机"]:
                             detail_text += f"""
@@ -208,5 +222,6 @@ with tab2:
                         except:
                             st.rerun()
 
+# ========== 6. 底部信息 ==========
 st.divider()
 st.caption(f"📊 系统总记录数：{len(st.session_state.records)} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
