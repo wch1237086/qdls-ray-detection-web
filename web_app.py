@@ -112,7 +112,8 @@ with tab1:
             key="sheet_select"
         )
         
-        thickness = st.text_input("厚度 (mm)（仅数字）", key="thickness")
+        # 修改：厚度输入框取消仅数字限制
+        thickness = st.text_input("厚度 (mm)", key="thickness")
         focal_length = st.text_input("焦距 (mm)（仅数字）", key="focal")
         
         st.subheader("设备专属参数")
@@ -135,8 +136,9 @@ with tab1:
         submit_btn = st.form_submit_button("✅ 提交数据")
         
         if submit_btn:
-            if not thickness.isdigit() or not focal_length.isdigit():
-                st.error("❌ 厚度和焦距必须输入数字！")
+            # 修改：仅检查焦距为数字，不再检查厚度
+            if not focal_length.isdigit():
+                st.error("❌ 焦距必须输入数字！")
             else:
                 new_record = {
                     "id": st.session_state.next_id,
@@ -171,7 +173,7 @@ with tab2:
         [""] + ["单片", "双片"],
         key="query_sheet"
     )
-    query_thickness = st.text_input("厚度 (mm)（可选，仅数字）", key="query_thickness")
+    query_thickness = st.text_input("厚度 (mm)（可选）", key="query_thickness")
     
     query_btn = st.button("🔍 执行查询")
     
