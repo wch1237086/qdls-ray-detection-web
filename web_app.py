@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # 内置初始密码（你可以在这里修改）
-DEFAULT_PASSWORD = "123456"
+DEFAULT_PASSWORD = "qdls123456"
 
 def check_password():
     with st.form("login_form", clear_on_submit=False):
@@ -297,3 +297,4 @@ with tab3:
 # ========== 9. 底部信息 ==========
 st.divider()
 st.caption(f"📊 系统总记录数：{len(st.session_state.records)} | 最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
